@@ -1,0 +1,16 @@
+# CUDA-enabled PyTorch wheels for Windows/Linux NVIDIA systems.
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
+
+numpy==1.26.4
+opencv-python==4.10.0.84
+ffmpeg-python==0.2.0
+pillow==10.4.0
+tqdm==4.67.1
+pyyaml==6.0.2
+loguru==0.7.3
+
+# The maintained upstream repositories avoid the obsolete PyPI source bundles.
+basicsr @ git+https://github.com/XPixelGroup/BasicSR.git@v1.4.2
+realesrgan @ git+https://github.com/xinntao/Real-ESRGAN.git@v0.3.0
