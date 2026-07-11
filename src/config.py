@@ -11,5 +11,6 @@ MODELS_DIR = PROJECT_ROOT / "models"
 
 DEFAULT_MODEL = MODELS_DIR / "RealESRGAN_x4plus.pth"
 DEFAULT_OUTPUT_SCALE = 2.0
+DEFAULT_SEGMENT_SECONDS = 300
 FRAME_NAME = "frame_%08d.png"
 SUPPORTED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".m4v"}

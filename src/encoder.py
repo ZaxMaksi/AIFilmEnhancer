@@ -1,4 +1,4 @@
-"""Encode processed image sequences and restore source audio."""
+"""Encode processed image sequences and join video parts."""
 
 from pathlib import Path
 
@@ -17,3 +17,19 @@ def encode_video(frames_dir: Path, frame_rate: str, source_video: Path, output_p
         command.extend(["-map", "1:a?", "-c:a", "copy"])
     command.extend(["-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p", "-shortest", str(output_path)])
     run_command(command)
+
+
+def concatenate_videos(parts: list[Path], output_path: Path, list_file: Path) -> None:
+    """Join identically encoded MP4 parts without re-encoding them."""
+    if not parts:
+        raise ValueError("No processed parts are available to concatenate.")
+
+    def concat_entry(part: Path) -> str:
+        escaped_path = part.resolve().as_posix().replace("'", r"'\''")
+        return f"file '{escaped_path}'"
+
+    list_file.write_text("\n".join(concat_entry(part) for part in parts) + "\n", encoding="utf-8")
+    run_command([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
+        "-c", "copy", "-movflags", "+faststart", str(output_path),
+    ])
