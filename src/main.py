@@ -24,12 +24,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL, help="RealESRGAN x4+ checkpoint path.")
     parser.add_argument("--scale", type=float, default=DEFAULT_OUTPUT_SCALE, choices=(2.0, 3.0, 4.0), help="Output scale.")
     parser.add_argument("--tile", type=int, default=0, help="Tile size for low-VRAM GPUs; 0 disables tiling.")
-    parser.add_argument(
-        "--segment-seconds",
-        type=int,
-        default=DEFAULT_SEGMENT_SECONDS,
-        help="Process one segment at a time; default: 300 seconds (5 minutes).",
-    )
+    parser.add_argument("--contrast", type=float, default=1.0, help="Linear contrast adjustment (default: 1.0).")
+    parser.add_argument("--film-grain", type=float, default=0.0, help="Strength of monochrome film grain (default: 0.0).")
+    parser.add_argument("--bloom", type=float, default=0.0, help="Strength of soft bloom/glow (default: 0.0).")
+    parser.add_argument("--segment-seconds", type=int, default=DEFAULT_SEGMENT_SECONDS, help="Process one segment at a time; default: 300 seconds (5 minutes).",)
     parser.add_argument("--resume", action="store_true", help="Resume an interrupted segmented job with the same settings.")
     parser.add_argument("--keep-temp", action="store_true", help="Keep extracted and upscaled frames in temp/.")
     parser.add_argument("--verbose", action="store_true")
@@ -53,12 +51,13 @@ def require_valid_environment() -> None:
         raise RuntimeError("Environment check failed. Fix .venv dependencies before processing video.")
 
 
-def job_directory(source: Path, segment_seconds: int, model_path: Path, tile_size: int, scale: float) -> Path:
+def job_directory(source: Path, segment_seconds: int, model_path: Path, tile_size: int, scale: float, contrast: float, grain: float, bloom: float) -> Path:
     """Return a stable working directory for one source and processing setup."""
     source_stat = source.stat()
     fingerprint = "|".join((
         str(source), str(source_stat.st_size), str(source_stat.st_mtime_ns),
         str(segment_seconds), str(model_path), str(tile_size), str(scale),
+        str(contrast), str(grain), str(bloom),
     ))
     job_id = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:12]
     return TEMP_DIR / "jobs" / f"{source.stem}_{job_id}"
@@ -86,9 +85,12 @@ def process_segments(
     tile_size: int,
     scale: float,
     resume: bool,
+    contrast: float,
+    grain: float,
+    bloom: float,
 ) -> Path:
     """Process a long video one segment at a time to keep disk usage bounded."""
-    work_dir = job_directory(source, segment_seconds, model_path, tile_size, scale)
+    work_dir = job_directory(source, segment_seconds, model_path, tile_size, scale, contrast, grain, bloom)
     state_path = work_dir / "state.json"
     segments_dir = work_dir / "source_segments"
     original_frames = work_dir / "frames_original"
@@ -138,7 +140,7 @@ def process_segments(
         reset_directory(upscaled_frames)
         logging.info("Processing segment %d/%d: %s", index, len(source_segments), source_segment.name)
         frame_rate = extract_frames(source_segment, original_frames)
-        upscale_frames(original_frames, upscaled_frames, upscaler, scale)
+        upscale_frames(original_frames, upscaled_frames, upscaler, scale, contrast, grain, bloom)
         encode_video(upscaled_frames, frame_rate, source_segment, encoded_segment)
         encoded_segments.append(encoded_segment)
         completed_segments.add(index)
@@ -165,6 +167,7 @@ def main() -> None:
     try:
         work_dir = process_segments(
             source, output, args.segment_seconds, args.model.resolve(), args.tile, args.scale, args.resume,
+            args.contrast, args.film_grain, args.bloom,
         )
         completed = True
         logging.info("Done: %s", output)

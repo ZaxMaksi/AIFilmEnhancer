@@ -12,16 +12,10 @@ from utils import ensure_directories, require_executable, run_command
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Split a video into short MP4 files without re-encoding.")
     parser.add_argument("input", type=Path, help="Video path, or a filename inside input/.")
-    parser.add_argument(
-        "--segment-seconds",
-        type=int,
-        default=300,
+    parser.add_argument("--segment-seconds", type=int, default=300,
         help="Maximum target duration of one segment in seconds (default: 300 = 5 minutes).",
     )
-    parser.add_argument(
-        "-o",
-        "--output-dir",
-        type=Path,
+    parser.add_argument( "-o", "--output-dir", type=Path,
         help="Directory for the parts (default: output/<video_name>_parts).",
     )
     parser.add_argument("--verbose", action="store_true")

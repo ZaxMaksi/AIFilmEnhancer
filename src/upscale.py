@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from effects import add_bloom, add_film_grain, apply_contrast
+
 
 def create_upscaler(model_path: Path, tile_size: int = 0) -> Any:
     """Create a Real-ESRGAN x4+ upscaler using a locally stored checkpoint."""
@@ -17,7 +19,7 @@ def create_upscaler(model_path: Path, tile_size: int = 0) -> Any:
 
         prepare_basicsr_compatibility()
         from realesrgan import RealESRGANer
-        from realesrgan.archs.rrdbnet_arch import RRDBNet
+        from basicsr.archs.rrdbnet_arch import RRDBNet
     except ImportError as error:
         raise RuntimeError("Real-ESRGAN dependencies are missing. Run: python -m pip install -r requirements.txt") from error
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -35,8 +37,16 @@ def create_upscaler(model_path: Path, tile_size: int = 0) -> Any:
     )
 
 
-def upscale_frames(input_dir: Path, output_dir: Path, upscaler: Any, outscale: float) -> None:
-    """Upscale all PNG frames in lexical order."""
+def upscale_frames(
+    input_dir: Path,
+    output_dir: Path,
+    upscaler: Any,
+    outscale: float,
+    contrast: float = 1.0,
+    grain: float = 0.0,
+    bloom: float = 0.0,
+) -> None:
+    """Upscale all PNG frames in lexical order and apply visual effects."""
     import cv2
 
     frames = sorted(input_dir.glob("*.png"))
@@ -50,6 +60,15 @@ def upscale_frames(input_dir: Path, output_dir: Path, upscaler: Any, outscale: f
             enhanced, _ = upscaler.enhance(image, outscale=outscale)
         except RuntimeError as error:
             raise RuntimeError(f"Real-ESRGAN failed on {frame_path.name}: {error}") from error
+
+        # Apply post-processing effects
+        if contrast != 1.0:
+            enhanced = apply_contrast(enhanced, contrast)
+        if bloom > 0:
+            enhanced = add_bloom(enhanced, bloom)
+        if grain > 0:
+            enhanced = add_film_grain(enhanced, grain)
+
         destination = output_dir / frame_path.name
         if not cv2.imwrite(str(destination), enhanced):
             raise RuntimeError(f"Could not write frame: {destination}")
